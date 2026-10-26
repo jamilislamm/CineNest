@@ -1449,6 +1449,10 @@
   $("watchlistBtn").onclick = () => list("watchlist");
   $("historyBtn").onclick = () => list("history");
 
+  $("fav").onclick = () => {
+    if (movie) toggleFav(movie);
+  };
+
   // Filters — no persistence
   $("applyFilters").onclick = () => discover(false);
   $("resetFilters").onclick = () => {
