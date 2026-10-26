@@ -132,6 +132,7 @@
         "primary_release_date.asc": "Oldest",
         "revenue.desc": "Revenue",
         "imdb.desc": "IMDb rating",
+        "imdb_votes.desc": "IMDb votes",
       },
     },
     pageSize: { label: "Batch" },
@@ -631,7 +632,10 @@
     const params = {
       page: String(page),
       include_adult: "false",
-      sort_by: sortBy === "imdb.desc" ? "popularity.desc" : sortBy,
+      sort_by:
+        sortBy === "imdb.desc" || sortBy === "imdb_votes.desc"
+          ? "popularity.desc"
+          : sortBy,
     };
 
     let endpoint = "/discover/movie";
@@ -762,6 +766,8 @@
 
       if (sortBy === "imdb.desc") {
         items.sort((a, b) => (b.imdb_rating ?? 0) - (a.imdb_rating ?? 0));
+      } else if (sortBy === "imdb_votes.desc") {
+        items.sort((a, b) => (b.imdb_votes ?? 0) - (a.imdb_votes ?? 0));
       }
 
       results = append ? results.concat(items) : items;
