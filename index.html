@@ -65,6 +65,7 @@
                 <option value="movie">Movies</option>
                 <option value="tv">TV Series</option>
                 <option value="anime">Anime</option>
+                <option value="all">All</option>
               </select>
             </label>
             <label
@@ -108,30 +109,6 @@
               </select>
             </label>
             <label
-              >Language
-              <select id="language">
-                <option value="">Any language</option>
-                <option value="hi">Hindi</option>
-                <option value="en">English</option>
-                <option value="bn">Bengali</option>
-                <option value="ta">Tamil</option>
-                <option value="te">Telugu</option>
-                <option value="ml">Malayalam</option>
-                <option value="kn">Kannada</option>
-                <option value="mr">Marathi</option>
-                <option value="pa">Punjabi</option>
-                <option value="ur">Urdu</option>
-                <option value="ko">Korean</option>
-                <option value="ja">Japanese</option>
-                <option value="zh">Chinese</option>
-                <option value="fr">French</option>
-                <option value="es">Spanish</option>
-                <option value="de">German</option>
-                <option value="ru">Russian</option>
-                <option value="tr">Turkish</option>
-              </select>
-            </label>
-            <label
               >Genre
               <select id="genre">
                 <option value="">All genres</option>
@@ -152,33 +129,20 @@
                 <option value="90">Last 3 months</option>
                 <option value="180">Last 6 months</option>
                 <option value="365">Last 1 year</option>
+                <option value="1825">Last 5 years</option>
+                <option value="3650">Last 10 years</option>
+                <option value="5475">Last 15 years</option>
+                <option value="7300">Last 20 years</option>
                 <option value="ty">This year</option>
                 <option value="ly">Last year</option>
               </select>
             </label>
             <label
-              >Min TMDB rating
-              <select id="minRating">
-                <option value="">Any</option>
-                <option value="5">5.0+</option>
-                <option value="6">6.0+</option>
-                <option value="7">7.0+</option>
-                <option value="8">8.0+</option>
-              </select>
-            </label>
-            <label
-              >Min votes
-              <select id="minVotes">
-                <option value="">Any</option>
-                <option value="50">50+</option>
-                <option value="100">100+</option>
-                <option value="500">500+</option>
-                <option value="1000">1,000+</option>
-              </select>
-            </label>
-            <label
               >Sort by
               <select id="sort">
+                <option value="imdb.desc" selected>
+                  IMDb rating (current batch only)
+                </option>
                 <option value="popularity.desc">Popularity</option>
                 <option value="vote_average.desc">TMDB rating (global)</option>
                 <option value="vote_count.desc">Most votes</option>
@@ -187,9 +151,6 @@
                 </option>
                 <option value="primary_release_date.asc">Oldest release</option>
                 <option value="revenue.desc">Box office revenue</option>
-                <option value="imdb.desc">
-                  IMDb rating (current batch only)
-                </option>
               </select>
             </label>
             <label
@@ -199,6 +160,8 @@
                 <option value="40">40</option>
                 <option value="60">60</option>
                 <option value="100">100</option>
+                <option value="200">200</option>
+                <option value="500">500</option>
               </select>
             </label>
           </div>
@@ -206,6 +169,7 @@
             <button id="applyFilters">Apply filters</button>
             <button class="secondary" id="resetFilters">Reset</button>
           </div>
+          <div id="filterBadges" class="filter-badges"></div>
         </div>
 
         <div id="status" class="notice" role="status"></div>
@@ -245,6 +209,14 @@
             </div>
             <p id="extra" class="small"></p>
           </div>
+        </div>
+
+        <div id="resumeBanner" class="resume-banner hidden">
+          <div>
+            <strong id="resumeText"></strong>
+            <div id="resumeSub" class="small"></div>
+          </div>
+          <button id="startOverBtn" class="secondary">Start over</button>
         </div>
 
         <div class="section-head">
