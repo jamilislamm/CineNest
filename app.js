@@ -8,15 +8,55 @@
   const FALLBACK = "https://placehold.co/500x750/202735/e5e7eb?text=No+Poster";
   const $ = (id) => document.getElementById(id);
 
-  // Servers
+  // Servers — all support movie + tv patterns
   const servers = [
-    { name: "VidBolt", url: (id) => `https://vidbolt.xyz/movie/${id}` },
     {
+      id: "vidbolt",
+      name: "VidBolt",
+      movie: (id) => `https://vidbolt.xyz/movie/${id}`,
+      tv: (id, s, e) => `https://vidbolt.xyz/tv/${id}/${s}/${e}`,
+    },
+    {
+      id: "cineverse",
       name: "Cineverse",
-      url: (id) => `https://rozgarlelo.modiplay.xyz/embed/tmdb/movie?id=${id}`,
+      movie: (id) =>
+        `https://rozgarlelo.modiplay.xyz/embed/tmdb/movie?id=${id}`,
+      tv: (id, s, e) =>
+        `https://rozgarlelo.modiplay.xyz/embed/tmdb/tv?id=${id}&s=${s}&e=${e}`,
+    },
+    {
+      id: "vidrift",
+      name: "VidRift",
+      movie: (id) => `https://embed.vidrift.net/embed/movie/${id}`,
+      tv: (id, s, e) => `https://embed.vidrift.net/embed/tv/${id}/${s}/${e}`,
+    },
+    {
+      id: "vidly",
+      name: "Vidly",
+      movie: (id) => `https://vidly.pro/movie/${id}`,
+      tv: (id, s, e) => `https://vidly.pro/tv/${id}/${s}/${e}`,
+    },
+    {
+      id: "nxsha",
+      name: "Nxsha",
+      movie: (id) => `https://nxsha.space/embed/movie/${id}`,
+      tv: (id, s, e) => `https://nxsha.space/embed/tv/${id}/${s}/${e}`,
+    },
+    {
+      id: "screenscape",
+      name: "Screenscape",
+      movie: (id) => `https://nxsha.screenscape.me/embed?tmdb=${id}&type=movie`,
+      tv: (id, s, e) =>
+        `https://nxsha.screenscape.me/embed?tmdb=${id}&type=tv&s=${s}&e=${e}`,
+    },
+    {
+      id: "moviesnexus",
+      name: "MoviesNexus",
+      movie: (id) => `https://www.moviesnexus.fun/movie/${id}`,
+      tv: (id, s, e) => `https://www.moviesnexus.fun/tv/${id}/${s}/${e}`,
     },
   ];
-  let currentServer = 0;
+  let currentServerId = "vidbolt";
 
   // ---------- State ----------
   const read = (k, d) => {
@@ -29,6 +69,11 @@
 
   let movie = null;
   let currentImdbId = null;
+  let currentMediaType = "movie";
+  let currentSeason = 1;
+  let currentEpisode = 1;
+  let seasons = [];
+  let episodes = [];
   let results = [];
   let page = 1;
   let totalPages = 1;
@@ -47,6 +92,9 @@
   // ---------- Init ----------
   if (prefs.theme === "light") document.body.classList.add("light");
   $("audio").value = prefs.audio || "";
+  if (prefs.serverMovie && servers.some((s) => s.id === prefs.serverMovie)) {
+    currentServerId = prefs.serverMovie;
+  }
 
   // ---------- Persistence ----------
   function save() {
@@ -109,6 +157,13 @@
     $(id).classList.remove("hidden");
     window.scrollTo({ top: 0, behavior: "smooth" });
     hideSuggestions();
+    if (id !== "detailPage") {
+      // Stop any running player when leaving detail page
+      $("player").innerHTML = "";
+    } else if (!push && movie) {
+      // Browser back/forward into detail page — reload player
+      loadPlayer();
+    }
     if (push && window.history.state?.view !== id) {
       window.history.pushState({ view: id }, "");
     }
@@ -579,44 +634,105 @@
   // ---------- Open movie detail ----------
   async function openMovie(m) {
     movie = m;
+    currentImdbId = null;
+    currentSeason = 1;
+    currentEpisode = 1;
+    seasons = [];
+    episodes = [];
+
+    // Robust media type detection
+    let type = m.media_type;
+    if (!type) {
+      if (m.first_air_date || m.name) type = "tv";
+      else type = "movie";
+    }
+    currentMediaType = type;
+
     pageView("detailPage");
 
     $("poster").src = poster(m.poster_path);
     $("poster").onerror = () => ($("poster").src = FALLBACK);
     $("title").textContent = m.title || m.name || "Untitled";
     $("overview").textContent = m.overview || "No description available.";
-
     $("pills").innerHTML = "";
-    const releaseDate = m.release_date || m.first_air_date || "";
-    const dateDisplay = releaseDate ? formatDate(releaseDate) : "Unknown date";
-    const basePills = [
-      `Released: ${dateDisplay}`,
-      m.vote_average ? `TMDB ★ ${Number(m.vote_average).toFixed(1)}` : "",
-      `TMDB ID ${m.id}`,
-    ].filter(Boolean);
-
-    basePills.forEach((s) => {
-      const p = document.createElement("span");
-      p.className = "pill";
-      p.textContent = s;
-      $("pills").append(p);
-    });
-
     $("fav").textContent = isFav(m.id)
       ? "♥ In watchlist"
       : "♡ Add to watchlist";
     $("extra").textContent = "";
+    $("imdbLink").classList.add("hidden");
+    $("episodeSection").classList.add("hidden");
 
-    const type = m.media_type === "tv" ? "tv" : "movie";
+    // Load saved server for this media type
+    const savedServer = type === "tv" ? prefs.serverTv : prefs.serverMovie;
+    if (savedServer && servers.some((s) => s.id === savedServer)) {
+      currentServerId = savedServer;
+    }
+
+    // Fetch details with type-mismatch fallback
+    let d = null;
     try {
-      const d = await tmdb(`/${type}/${m.id}`);
+      try {
+        d = await tmdb(`/${type}/${m.id}`);
+      } catch {
+        type = type === "movie" ? "tv" : "movie";
+        currentMediaType = type;
+        d = await tmdb(`/${type}/${m.id}`);
+      }
+      // Verify title matches (fixes VisionQuest / ID-collision issue)
+      const expectedTitle = (m.title || m.name || "").toLowerCase().trim();
+      const returnedTitle = (d.title || d.name || "").toLowerCase().trim();
+      if (expectedTitle && returnedTitle && returnedTitle !== expectedTitle) {
+        const altType = type === "movie" ? "tv" : "movie";
+        try {
+          const altD = await tmdb(`/${altType}/${m.id}`);
+          const altTitle = (altD.title || altD.name || "").toLowerCase().trim();
+          if (altTitle === expectedTitle) {
+            d = altD;
+            type = altType;
+            currentMediaType = altType;
+          }
+        } catch {
+          /* keep d */
+        }
+      }
+    } catch {
+      $("extra").textContent = "Could not load details.";
+    }
+
+    // Render pills (after type confirmed)
+    const releaseDate =
+      (d && (d.release_date || d.first_air_date)) ||
+      m.release_date ||
+      m.first_air_date ||
+      "";
+    const dateDisplay = releaseDate ? formatDate(releaseDate) : "Unknown date";
+    const dateLabel = type === "tv" ? "First aired" : "Released";
+    const tmdbRating = (d && d.vote_average) || m.vote_average;
+    [
+      `${dateLabel}: ${dateDisplay}`,
+      tmdbRating ? `TMDB ★ ${Number(tmdbRating).toFixed(1)}` : "",
+      `TMDB ID ${m.id}`,
+    ]
+      .filter(Boolean)
+      .forEach((s) => {
+        const p = document.createElement("span");
+        p.className = "pill";
+        p.textContent = s;
+        $("pills").append(p);
+      });
+
+    if (d) {
       const extraParts = [
         d.runtime ? `${d.runtime} min` : "",
+        d.episode_run_time?.[0] ? `${d.episode_run_time[0]} min/ep` : "",
         d.genres?.map((g) => g.name).join(" · ") || "",
+        d.number_of_seasons
+          ? `${d.number_of_seasons} season${d.number_of_seasons > 1 ? "s" : ""}`
+          : "",
       ].filter(Boolean);
       $("extra").textContent = extraParts.join(" • ");
 
-      // IMDb rating + link
+      // IMDb rating + link (correct imdb_id now)
       currentImdbId = d.imdb_id || null;
       $("imdbLink").classList.toggle("hidden", !currentImdbId);
       if (d.imdb_id) {
@@ -632,8 +748,16 @@
           $("pills").append(p);
         }
       }
-    } catch {
-      /* ignore */
+
+      // TV seasons + episodes
+      if (type === "tv") {
+        seasons = (d.seasons || []).filter((s) => s.season_number > 0);
+        if (seasons.length) {
+          $("episodeSection").classList.remove("hidden");
+          populateSeasonSelect();
+          await loadSeasonEpisodes(1);
+        }
+      }
     }
 
     renderServerTabs();
@@ -647,21 +771,72 @@
   }
 
   // ---------- Player ----------
-  function buildPlayerUrl(id) {
-    const u = new URL(servers[currentServer].url(id));
-    if (prefs.audio) u.searchParams.set("audio", prefs.audio);
-    return u.toString();
+  function loadPlayer() {
+    if (!movie) return;
+    const server = servers.find((s) => s.id === currentServerId) || servers[0];
+    let url =
+      currentMediaType === "tv"
+        ? server.tv(movie.id, currentSeason, currentEpisode)
+        : server.movie(movie.id);
+
+    if (prefs.audio && currentMediaType === "movie") {
+      try {
+        const u = new URL(url);
+        u.searchParams.set("audio", prefs.audio);
+        url = u.toString();
+      } catch {
+        /* ignore */
+      }
+    }
+
+    const iframe = document.createElement("iframe");
+    iframe.src = url;
+    iframe.title = "Player for " + (movie.title || movie.name);
+    iframe.allow =
+      "autoplay; encrypted-media; picture-in-picture; fullscreen; clipboard-write";
+    iframe.allowFullscreen = true;
+    // Try permissive referrer policy; some servers require no-referrer
+    iframe.referrerPolicy = "no-referrer";
+    // Sandbox with broad permissions (helps some players)
+    iframe.setAttribute(
+      "sandbox",
+      "allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation allow-downloads",
+    );
+    // Add error handling: if iframe fails, show fallback message
+    iframe.onerror = () => {
+      const placeholder = document.createElement("div");
+      placeholder.className = "placeholder";
+      placeholder.textContent =
+        "This server refused to connect in an iframe. Please try another server.";
+      $("player").replaceChildren(placeholder);
+    };
+
+    $("player").replaceChildren(iframe);
+
+    if (currentMediaType === "tv") {
+      $("playerMeta").textContent = `S${String(currentSeason).padStart(
+        2,
+        "0",
+      )}E${String(currentEpisode).padStart(2, "0")} · ${server.name}`;
+    } else {
+      $("playerMeta").textContent = server.name;
+    }
+    toast(`Player: ${server.name}`);
   }
 
   function renderServerTabs() {
     const container = $("serverTabs");
     container.innerHTML = "";
-    servers.forEach((srv, idx) => {
+    servers.forEach((srv) => {
       const btn = document.createElement("button");
-      btn.className = "server-tab" + (idx === currentServer ? " active" : "");
+      btn.className =
+        "server-tab" + (srv.id === currentServerId ? " active" : "");
       btn.textContent = srv.name;
       btn.onclick = () => {
-        currentServer = idx;
+        currentServerId = srv.id;
+        if (currentMediaType === "tv") prefs.serverTv = srv.id;
+        else prefs.serverMovie = srv.id;
+        save();
         renderServerTabs();
         loadPlayer();
       };
@@ -669,17 +844,81 @@
     });
   }
 
-  function loadPlayer() {
+  // ---------- Seasons & Episodes ----------
+  function populateSeasonSelect() {
+    const sel = $("seasonSelect");
+    if (!sel) return;
+    sel.innerHTML = "";
+    seasons.forEach((s) => {
+      const o = document.createElement("option");
+      o.value = String(s.season_number);
+      o.textContent = `Season ${s.season_number}`;
+      sel.append(o);
+    });
+    sel.value = String(currentSeason);
+    sel.onchange = async () => {
+      currentSeason = parseInt(sel.value, 10) || 1;
+      currentEpisode = 1;
+      await loadSeasonEpisodes(currentSeason);
+      loadPlayer();
+    };
+  }
+
+  async function loadSeasonEpisodes(seasonNum) {
     if (!movie) return;
-    const url = buildPlayerUrl(movie.id);
-    const iframe = document.createElement("iframe");
-    iframe.src = url;
-    iframe.title = "Player for " + (movie.title || movie.name);
-    iframe.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen";
-    iframe.allowFullscreen = true;
-    iframe.referrerPolicy = "strict-origin-when-cross-origin";
-    $("player").replaceChildren(iframe);
-    toast(`Player loaded (${servers[currentServer].name}).`);
+    try {
+      const d = await tmdb(`/tv/${movie.id}/season/${seasonNum}`);
+      episodes = d.episodes || [];
+    } catch {
+      episodes = [];
+    }
+    renderEpisodes();
+  }
+
+  function renderEpisodes() {
+    const grid = $("episodeGrid");
+    if (!grid) return;
+    grid.innerHTML = "";
+    episodes.forEach((ep) => {
+      const el = document.createElement("div");
+      el.className =
+        "episode-card" +
+        (ep.episode_number === currentEpisode ? " active" : "");
+      el.onclick = () => {
+        currentEpisode = ep.episode_number;
+        renderEpisodes();
+        loadPlayer();
+      };
+
+      const img = document.createElement("img");
+      img.src = ep.still_path
+        ? `https://image.tmdb.org/t/p/w300${ep.still_path}`
+        : FALLBACK;
+      img.alt = "";
+      img.onerror = () => (img.src = FALLBACK);
+
+      const info = document.createElement("div");
+      info.className = "episode-info";
+
+      const num = document.createElement("div");
+      num.className = "episode-num";
+      num.textContent = `S${String(currentSeason).padStart(
+        2,
+        "0",
+      )}E${String(ep.episode_number).padStart(2, "0")}`;
+
+      const name = document.createElement("div");
+      name.className = "episode-name";
+      name.textContent = ep.name || "Untitled";
+
+      const date = document.createElement("div");
+      date.className = "episode-date";
+      date.textContent = ep.air_date ? formatDate(ep.air_date) : "";
+
+      info.append(num, name, date);
+      el.append(img, info);
+      grid.append(el);
+    });
   }
 
   // ---------- History ----------
@@ -865,6 +1104,18 @@
         "_blank",
         "noopener,noreferrer",
       );
+    }
+  };
+
+  $("share").onclick = async () => {
+    if (!movie) return;
+    const t = currentMediaType === "tv" ? "tv" : "movie";
+    const u = `https://www.themoviedb.org/${t}/${movie.id}`;
+    try {
+      await navigator.clipboard.writeText(u);
+      toast("TMDB link copied");
+    } catch {
+      toast(u);
     }
   };
 

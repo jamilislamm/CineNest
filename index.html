@@ -250,7 +250,7 @@
         <div class="section-head">
           <div>
             <h2>Player</h2>
-            <div class="small">
+            <div id="playerMeta" class="small">
               Choose a server. Audio depends on the provider.
             </div>
           </div>
@@ -271,6 +271,17 @@
           Third‑party embeds. This website does not host or extract video
           streams.
         </p>
+
+        <div id="episodeSection" class="section hidden">
+          <div class="section-head">
+            <h2>Episodes</h2>
+            <label class="small"
+              >Season:
+              <select id="seasonSelect"></select>
+            </label>
+          </div>
+          <div id="episodeGrid" class="episode-grid"></div>
+        </div>
       </section>
 
       <!-- Settings -->
