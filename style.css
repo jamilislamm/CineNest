@@ -85,14 +85,27 @@ header {
   align-items: center;
 }
 .brand {
-  font-size: 23px;
-  font-weight: 950;
-  white-space: nowrap;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.05;
   cursor: pointer;
   user-select: none;
 }
-.brand b {
+.brand-name {
+  font-size: 23px;
+  font-weight: 950;
+  white-space: nowrap;
+}
+.brand-name b {
   color: var(--accent);
+}
+.brand-by {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--muted);
+  letter-spacing: 0.3px;
+  margin-top: 2px;
+  white-space: nowrap;
 }
 .nav form {
   display: flex;
