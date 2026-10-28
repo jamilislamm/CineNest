@@ -352,8 +352,10 @@
       loadPlayer();
     }
     if (push && window.history.state?.view !== id) {
-      window.history.pushState({ view: id }, "");
+      window.history.pushState({ view: id }, "", "");
     }
+    updateBottomNavActive(id);
+    closeFilterSheet();
   }
 
   // ---------- TMDB API ----------
@@ -1237,6 +1239,7 @@
   function renderServerTabs() {
     const container = $("serverTabs");
     container.innerHTML = "";
+    let activeBtn = null;
     servers.forEach((srv) => {
       const btn = document.createElement("button");
       btn.className =
@@ -1247,8 +1250,20 @@
         renderServerTabs();
         loadPlayer();
       };
+      if (srv.id === currentServerId) activeBtn = btn;
       container.append(btn);
     });
+    if (activeBtn && isMobile()) {
+      setTimeout(
+        () =>
+          activeBtn.scrollIntoView({
+            inline: "center",
+            block: "nearest",
+            behavior: "smooth",
+          }),
+        50,
+      );
+    }
   }
 
   // ---------- Filter badges ----------
@@ -1312,6 +1327,10 @@
       };
       container.append(reset);
     }
+
+    const countEl = $("filterCount");
+    if (countEl)
+      countEl.textContent = activeCount > 0 ? `(${activeCount})` : "";
   }
 
   // ---------- History ----------
@@ -1337,6 +1356,7 @@
           : "No history yet. Open a movie to start.",
         $("listEmpty"),
       );
+    updateBottomNavActive("listPage");
   }
 
   // ---------- Theme ----------
@@ -1460,7 +1480,10 @@
   };
 
   // Filters — no persistence
-  $("applyFilters").onclick = () => discover(false);
+  $("applyFilters").onclick = () => {
+    discover(false);
+    if (isMobile()) setTimeout(closeFilterSheet, 100);
+  };
   $("resetFilters").onclick = () => {
     Object.keys(FILTER_DEFAULTS).forEach((k) => {
       const el = $(k);
@@ -1573,7 +1596,12 @@
       if (movie) loadPlayer();
     } else if (k === "w" && movie) toggleFav(movie);
     else if (k === "escape") {
-      if (window.history.state?.view && window.history.state.view !== "home") {
+      if ($("filterPanel")?.classList.contains("open")) {
+        closeFilterSheet();
+      } else if (
+        window.history.state?.view &&
+        window.history.state.view !== "home"
+      ) {
         window.history.back();
       }
     } else if (k === "?")
@@ -1601,6 +1629,82 @@
     stopEpisodeTracking();
     if (progress[movie?.id]?.episodeProgress) saveProgressStore();
   });
+
+  // ---------- Mobile: helpers ----------
+  function isMobile() {
+    return window.matchMedia("(max-width: 768px)").matches;
+  }
+
+  // ---------- Mobile: bottom nav ----------
+  function updateBottomNavActive(viewId) {
+    let action = null;
+    if (viewId === "home" || viewId === "detailPage") action = "home";
+    else if (viewId === "settingsPage") action = "settings";
+    else if (viewId === "listPage") {
+      const title = ($("listTitle")?.textContent || "").toLowerCase();
+      action = title.includes("watchlist") ? "watchlist" : "history";
+    }
+    document.querySelectorAll("#bottomNav .bottom-nav-btn").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.action === action);
+    });
+  }
+
+  function wireBottomNav() {
+    const nav = $("bottomNav");
+    if (!nav) return;
+    nav.addEventListener("click", (e) => {
+      const btn = e.target.closest(".bottom-nav-btn");
+      if (!btn) return;
+      const action = btn.dataset.action;
+      if (action === "home") {
+        pageView("home");
+        loadPopular(false);
+      } else if (action === "watchlist") {
+        list("watchlist");
+      } else if (action === "history") {
+        list("history");
+      } else if (action === "settings") {
+        pageView("settingsPage");
+      }
+    });
+  }
+
+  // ---------- Mobile: filter sheet ----------
+  function openFilterSheet() {
+    const panel = $("filterPanel");
+    const backdrop = $("filterBackdrop");
+    if (!panel || !backdrop) return;
+    panel.classList.add("open");
+    backdrop.classList.remove("hidden");
+    document.body.classList.add("sheet-open");
+  }
+
+  function closeFilterSheet() {
+    const panel = $("filterPanel");
+    const backdrop = $("filterBackdrop");
+    if (!panel || !backdrop) return;
+    panel.classList.remove("open");
+    backdrop.classList.add("hidden");
+    document.body.classList.remove("sheet-open");
+  }
+
+  function wireFilterSheet() {
+    const openBtn = $("openFilters");
+    const closeBtn = $("closeFilters");
+    const backdrop = $("filterBackdrop");
+    if (openBtn) openBtn.addEventListener("click", openFilterSheet);
+    if (closeBtn) closeBtn.addEventListener("click", closeFilterSheet);
+    if (backdrop) backdrop.addEventListener("click", closeFilterSheet);
+
+    window.addEventListener("resize", () => {
+      if (!isMobile()) closeFilterSheet();
+    });
+  }
+
+  // ---------- Mobile: init ----------
+  wireBottomNav();
+  wireFilterSheet();
+  updateBottomNavActive("home");
 
   // ---------- Initial load ----------
   loadGenres().then(() => {

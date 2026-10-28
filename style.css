@@ -7,6 +7,8 @@
   --muted: #9ba8bb;
   --accent: #f04455;
   --line: #2a3445;
+  --bottom-nav-h: 60px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 * {
   box-sizing: border-box;
@@ -717,4 +719,340 @@ main {
 .episode-date {
   font-size: 11px;
   color: var(--muted);
+}
+/* ============================================================
+   MOBILE LAYOUT — appended block
+   Applies only ≤768px. Desktop styles above untouched.
+   ============================================================ */
+
+.mobile-only {
+  display: none !important;
+}
+
+@media (max-width: 768px) {
+  /* Prevent iOS zoom on input focus */
+  input,
+  select {
+    font-size: 16px;
+  }
+
+  /* Body padding for bottom nav */
+  body {
+    padding-bottom: calc(var(--bottom-nav-h) + var(--safe-bottom) + 14px);
+  }
+
+  /* Non-sticky header on mobile (sticky player conflict) */
+  header {
+    position: static;
+  }
+
+  /* Bigger touch targets */
+  button,
+  input,
+  select {
+    min-height: 44px;
+  }
+  .fav {
+    min-height: 0;
+    width: 40px;
+    height: 40px;
+  }
+
+  /* Remove tap flash, faster taps */
+  button,
+  .movie,
+  .episode-card,
+  .server-tab {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  /* Toast above bottom nav */
+  .toast {
+    bottom: calc(var(--bottom-nav-h) + var(--safe-bottom) + 14px);
+  }
+
+  /* ---------- Bottom Navigation ---------- */
+  .bottom-nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 15;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    height: calc(var(--bottom-nav-h) + var(--safe-bottom));
+    padding-bottom: var(--safe-bottom);
+    background: #090b10ee;
+    backdrop-filter: blur(16px);
+    border-top: 1px solid var(--line);
+  }
+  .bottom-nav-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    color: var(--muted);
+    font-weight: 650;
+    padding: 6px 4px;
+    min-height: 0;
+    cursor: pointer;
+    transition: color 0.15s;
+  }
+  .bottom-nav-btn .bn-icon {
+    font-size: 19px;
+    line-height: 1;
+  }
+  .bottom-nav-btn .bn-label {
+    font-size: 10px;
+  }
+  .bottom-nav-btn.active {
+    color: var(--accent);
+  }
+
+  /* ---------- Filter trigger ---------- */
+  .filter-trigger {
+    display: inline-block !important;
+    background: var(--panel2);
+    border: 1px solid var(--line);
+    color: var(--text);
+    font-weight: 650;
+    font-size: 13px;
+    padding: 8px 14px;
+    border-radius: 99px;
+    min-height: 38px;
+    white-space: nowrap;
+  }
+  #filterCount {
+    color: var(--accent);
+    font-weight: 800;
+  }
+
+  /* ---------- Filter sheet mode ---------- */
+  #filterPanel {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: auto;
+    margin: 0;
+    max-height: 85vh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-radius: 20px 20px 0 0;
+    transform: translateY(100%);
+    transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+    z-index: 20;
+    padding-bottom: calc(20px + var(--safe-bottom));
+    will-change: transform;
+  }
+  #filterPanel.open {
+    transform: translateY(0);
+  }
+
+  .sheet-header {
+    display: flex !important;
+    justify-content: space-between;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    background: var(--panel);
+    padding: 6px 4px 12px;
+    margin: -4px -4px 12px;
+    border-bottom: 1px solid var(--line);
+    z-index: 1;
+  }
+  .sheet-header h3 {
+    margin: 0;
+    font-size: 17px;
+  }
+  #closeFilters {
+    background: transparent;
+    border: 0;
+    color: var(--muted);
+    font-size: 20px;
+    font-weight: 700;
+    min-height: 0;
+    padding: 4px 12px;
+    cursor: pointer;
+  }
+
+  .filter-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    z-index: 19;
+    backdrop-filter: blur(2px);
+  }
+
+  body.sheet-open {
+    overflow: hidden;
+  }
+
+  .filter-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* Filter badges horizontal scroll */
+  .filter-badges {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+  }
+  .filter-badges::-webkit-scrollbar {
+    display: none;
+  }
+  .filter-badge {
+    flex-shrink: 0;
+  }
+
+  /* ---------- Sticky player on detail page ---------- */
+  .player-sticky {
+    position: sticky;
+    top: 0;
+    z-index: 4;
+    background: var(--bg);
+    padding: 8px 0;
+    margin: 0 -4px;
+  }
+  .player-sticky .player {
+    border-radius: 12px;
+  }
+
+  /* ---------- Server tabs: horizontal scroll ---------- */
+  .server-tabs {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    gap: 6px;
+    padding-bottom: 6px;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+  }
+  .server-tabs::-webkit-scrollbar {
+    display: none;
+  }
+  .server-tab {
+    flex-shrink: 0;
+    scroll-snap-align: start;
+    font-size: 12px;
+    padding: 8px 12px;
+  }
+
+  /* ---------- Detail layout ---------- */
+  .detail {
+    grid-template-columns: 130px 1fr;
+    gap: 14px;
+  }
+  .detail h1 {
+    font-size: 22px;
+    line-height: 1.1;
+  }
+  .pill {
+    font-size: 11px;
+    padding: 4px 8px;
+  }
+
+  /* ---------- Grid ---------- */
+  .grid {
+    grid-template-columns: repeat(2, minmax(140px, 1fr));
+    gap: 12px;
+  }
+
+  /* ---------- Episodes ---------- */
+  .episode-grid {
+    grid-template-columns: 1fr;
+  }
+  .episode-card {
+    min-height: 76px;
+  }
+  .episode-card img {
+    width: 100px;
+    height: 56px;
+  }
+  .episode-name {
+    font-size: 14px;
+  }
+
+  /* ---------- Hero compact ---------- */
+  .hero {
+    padding: 20px;
+    min-height: auto;
+    border-radius: 16px;
+  }
+  .hero h1 {
+    font-size: 26px;
+    letter-spacing: -0.5px;
+    line-height: 1.15;
+    margin: 8px 0;
+  }
+  .hero h1 br {
+    display: none;
+  }
+  .hero p {
+    font-size: 13px;
+  }
+  .hero .actions {
+    margin-top: 12px;
+    gap: 6px;
+  }
+  .hero .actions button {
+    flex: 1 1 auto;
+    font-size: 13px;
+    padding: 10px 12px;
+  }
+
+  /* ---------- Suggestions: full-width fixed ---------- */
+  .suggestions {
+    position: fixed;
+    top: 58px;
+    left: 12px;
+    right: 12px;
+    max-height: 60vh;
+  }
+}
+
+/* Small phones */
+@media (max-width: 480px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .detail {
+    grid-template-columns: 118px 1fr;
+    gap: 12px;
+  }
+  .detail h1 {
+    font-size: 20px;
+  }
+  .hero h1 {
+    font-size: 24px;
+  }
+  .main,
+  main {
+    padding: 12px 11px;
+  }
+}
+
+/* Extra-small */
+@media (max-width: 360px) {
+  .grid {
+    gap: 8px;
+  }
+  .filter-grid {
+    grid-template-columns: 1fr;
+  }
+  .bottom-nav-btn .bn-label {
+    font-size: 9px;
+  }
+  .bottom-nav-btn .bn-icon {
+    font-size: 17px;
+  }
 }
